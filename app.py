@@ -30,6 +30,21 @@ def volume_label(ratio: float) -> str:
     if ratio < 5.0:  return "大量"
     return "異常爆量"
 
+# 訊號設定：{訊號名稱: (顏色, marker符號, 位置above/below)}
+SIGNAL_CFG = {
+    "量增價漲": ("#ff4444", "triangle-up",   "below"),
+    "量縮價漲": ("#ff9900", "circle",         "above"),
+    "量增價跌": ("#44cc88", "triangle-down",  "above"),
+    "量縮價跌": ("#44aaff", "diamond",        "below"),
+}
+
+def pv_signal(change: float, ratio: float) -> str:
+    if change > 0:
+        return "量增價漲" if ratio >= 1.5 else ("量縮價漲" if ratio < 0.8 else "")
+    if change < 0:
+        return "量增價跌" if ratio >= 1.5 else ("量縮價跌" if ratio < 0.8 else "")
+    return ""
+
 def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFrame:
     stock = twstock.Stock(code)
     today = datetime.date.today()
@@ -63,6 +78,7 @@ def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFr
     all_df["5日均量"] = all_df["成交量(張)"].rolling(5,  min_periods=1).mean().round(0).astype(int)
     all_df["量比"]   = (all_df["成交量(張)"] / all_df["5日均量"].replace(0, 1)).round(2)
     all_df["量能判斷"] = all_df["量比"].apply(volume_label)
+    all_df["訊號"]   = all_df.apply(lambda r: pv_signal(r["漲跌"], r["量比"]), axis=1)
     all_df["MA5"]  = all_df["收盤"].rolling(5,  min_periods=1).mean().round(2)
     all_df["MA10"] = all_df["收盤"].rolling(10, min_periods=1).mean().round(2)
     all_df["MA20"] = all_df["收盤"].rolling(20, min_periods=1).mean().round(2)
@@ -230,13 +246,22 @@ else:
                 "大量":     "color: #ff4444",
                 "異常爆量": "color: #ff0000; font-weight:bold",
             }
+            SIGNAL_COLOR = {
+                "量增價漲": "color: #ff4444; font-weight:bold",
+                "量縮價漲": "color: #ff9900",
+                "量增價跌": "color: #44cc88; font-weight:bold",
+                "量縮價跌": "color: #44aaff",
+            }
             def color_label(val):
                 return LABEL_COLOR.get(val, "")
+            def color_signal(val):
+                return SIGNAL_COLOR.get(val, "")
 
             styled = (
                 df.style
-                .applymap(color_change, subset=["漲跌"])
-                .applymap(color_label, subset=["量能判斷"])
+                .applymap(color_change,  subset=["漲跌"])
+                .applymap(color_label,   subset=["量能判斷"])
+                .applymap(color_signal,  subset=["訊號"])
             )
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
@@ -277,6 +302,21 @@ else:
                     name=ma,
                     line=dict(color=color, width=1.5),
                     hovertemplate=f"{ma}：%{{y:.2f}}<extra></extra>",
+                ), row=1, col=1)
+
+            # 價量訊號標記
+            for sig, (clr, sym, pos) in SIGNAL_CFG.items():
+                mask = df["訊號"] == sig
+                if not mask.any():
+                    continue
+                y_vals = (df["最低"] * 0.997 if pos == "below" else df["最高"] * 1.003)
+                fig.add_trace(go.Scatter(
+                    x=df["日期"][mask],
+                    y=y_vals[mask],
+                    mode="markers",
+                    name=sig,
+                    marker=dict(symbol=sym, color=clr, size=10),
+                    hovertemplate=f"<b>{sig}</b><extra></extra>",
                 ), row=1, col=1)
 
             fig.add_trace(go.Bar(
