@@ -21,25 +21,37 @@ def save_watchlist(data):
     with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
+def volume_label(ratio: float) -> str:
+    if ratio < 0.5:  return "極度縮量"
+    if ratio < 1.0:  return "縮量"
+    if ratio < 1.5:  return "正常"
+    if ratio < 2.5:  return "放量"
+    if ratio < 5.0:  return "大量"
+    return "異常爆量"
+
 def fetch_stock_data(code: str, n_days: int) -> pd.DataFrame:
     from datetime import datetime, timedelta
     stock = twstock.Stock(code)
-    if len(stock.date) < n_days:
+    fetch_count = n_days + 5          # 多抓 5 天，確保 MA5 計算準確
+    if len(stock.date) < fetch_count:
         prev = (datetime.today().replace(day=1) - timedelta(days=1))
         stock.fetch(prev.year, prev.month)
     df = pd.DataFrame({
-        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date[-n_days:]],
-        "開盤":      stock.open[-n_days:],
-        "最高":      stock.high[-n_days:],
-        "最低":      stock.low[-n_days:],
-        "收盤":      stock.close[-n_days:],
-        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity[-n_days:]],
+        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date[-fetch_count:]],
+        "開盤":      stock.open[-fetch_count:],
+        "最高":      stock.high[-fetch_count:],
+        "最低":      stock.low[-fetch_count:],
+        "收盤":      stock.close[-fetch_count:],
+        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity[-fetch_count:]],
     })
     df = df.dropna(subset=["收盤"]).reset_index(drop=True)
     if df.empty:
         raise ValueError("此股票近期無交易資料")
-    df["漲跌"] = df["收盤"].diff().round(2).fillna(0)
-    return df
+    df["漲跌"]   = df["收盤"].diff().round(2).fillna(0)
+    df["5日均量"] = df["成交量(張)"].rolling(5, min_periods=1).mean().round(0).astype(int)
+    df["量比"]   = (df["成交量(張)"] / df["5日均量"].replace(0, 1)).round(2)
+    df["量能判斷"] = df["量比"].apply(volume_label)
+    return df.tail(n_days).reset_index(drop=True)
 
 def get_stock_name(code: str) -> str:
     try:
@@ -157,15 +169,29 @@ else:
         try:
             df = fetch_stock_data(current, n_days)
 
-            # 漲跌顏色標示
+            # 漲跌 / 量比顏色標示
             def color_change(val):
-                if val > 0:
-                    return "color: red"
-                elif val < 0:
-                    return "color: green"
+                if isinstance(val, (int, float)):
+                    if val > 0: return "color: red"
+                    if val < 0: return "color: green"
                 return ""
 
-            styled = df.style.applymap(color_change, subset=["漲跌"])
+            LABEL_COLOR = {
+                "極度縮量": "color: #888888",
+                "縮量":     "color: #aaaaaa",
+                "正常":     "",
+                "放量":     "color: #ff9900",
+                "大量":     "color: #ff4444",
+                "異常爆量": "color: #ff0000; font-weight:bold",
+            }
+            def color_label(val):
+                return LABEL_COLOR.get(val, "")
+
+            styled = (
+                df.style
+                .applymap(color_change, subset=["漲跌"])
+                .applymap(color_label, subset=["量能判斷"])
+            )
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
             csv = df.to_csv(index=False, encoding="utf-8-sig")
@@ -203,6 +229,15 @@ else:
                 marker_color=colors,
                 name="成交量(張)",
                 opacity=0.8,
+                customdata=list(zip(df["5日均量"], df["量比"], df["量能判斷"])),
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "成交量：%{y:,} 張<br>"
+                    "5日均量：%{customdata[0]:,} 張<br>"
+                    "量比：%{customdata[1]:.2f}<br>"
+                    "判斷：<b>%{customdata[2]}</b>"
+                    "<extra></extra>"
+                ),
             ), row=2, col=1)
 
             fig.update_layout(
