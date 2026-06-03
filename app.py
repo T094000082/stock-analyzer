@@ -23,22 +23,18 @@ def save_watchlist(data):
 
 def fetch_stock_data(code: str) -> pd.DataFrame:
     stock = twstock.Stock(code)
-    dates    = stock.date[-7:]
-    opens    = stock.open[-7:]
-    highs    = stock.high[-7:]
-    lows     = stock.low[-7:]
-    closes   = stock.close[-7:]
-    volumes  = stock.capacity[-7:]
-
     df = pd.DataFrame({
-        "日期":   [d.strftime("%Y-%m-%d") for d in dates],
-        "開盤":   opens,
-        "最高":   highs,
-        "最低":   lows,
-        "收盤":   closes,
-        "漲跌":   [round(closes[i] - closes[i-1], 2) if i > 0 else 0 for i in range(len(closes))],
-        "成交量(張)": [int(v // 1000) for v in volumes],
+        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date[-7:]],
+        "開盤":      stock.open[-7:],
+        "最高":      stock.high[-7:],
+        "最低":      stock.low[-7:],
+        "收盤":      stock.close[-7:],
+        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity[-7:]],
     })
+    df = df.dropna(subset=["收盤"]).reset_index(drop=True)
+    if df.empty:
+        raise ValueError("此股票近期無交易資料")
+    df["漲跌"] = df["收盤"].diff().round(2).fillna(0)
     return df
 
 def get_stock_name(code: str) -> str:
