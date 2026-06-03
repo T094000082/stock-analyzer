@@ -273,6 +273,13 @@ else:
 
             styled = (
                 df.style
+                .format({
+                    "開盤": "{:.2f}", "最高": "{:.2f}",
+                    "最低": "{:.2f}", "收盤": "{:.2f}",
+                    "漲跌": "{:.2f}", "量比": "{:.2f}",
+                    "MA5":  "{:.2f}", "MA10": "{:.2f}", "MA20": "{:.2f}",
+                    "成交量(張)": "{:,}", "5日均量": "{:,}",
+                })
                 .applymap(color_change,  subset=["漲跌"])
                 .applymap(color_label,   subset=["量能判斷"])
                 .applymap(color_signal,  subset=["訊號"])
