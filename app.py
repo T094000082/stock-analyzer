@@ -121,9 +121,9 @@ with st.sidebar:
             st.warning("請從搜尋結果中選擇股票")
 
     st.divider()
-    st.session_state.n_days = st.slider(
+    st.slider(
         "顯示交易日數", min_value=1, max_value=30,
-        value=st.session_state.n_days, step=1,
+        step=1, key="n_days",
     )
     st.divider()
     st.subheader(f"📋 我的清單（{len(st.session_state.watchlist)}/{MAX_WATCHLIST}）")
