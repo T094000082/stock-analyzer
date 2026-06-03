@@ -60,9 +60,12 @@ def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFr
         raise ValueError("此股票無交易資料")
 
     all_df["漲跌"]   = all_df["收盤"].diff().round(2).fillna(0)
-    all_df["5日均量"] = all_df["成交量(張)"].rolling(5, min_periods=1).mean().round(0).astype(int)
+    all_df["5日均量"] = all_df["成交量(張)"].rolling(5,  min_periods=1).mean().round(0).astype(int)
     all_df["量比"]   = (all_df["成交量(張)"] / all_df["5日均量"].replace(0, 1)).round(2)
     all_df["量能判斷"] = all_df["量比"].apply(volume_label)
+    all_df["MA5"]  = all_df["收盤"].rolling(5,  min_periods=1).mean().round(2)
+    all_df["MA10"] = all_df["收盤"].rolling(10, min_periods=1).mean().round(2)
+    all_df["MA20"] = all_df["收盤"].rolling(20, min_periods=1).mean().round(2)
 
     # 篩選到 anchor 日期為止的最後 n_days 筆
     all_df["_dt"] = pd.to_datetime(all_df["日期"])
@@ -265,6 +268,16 @@ else:
                 decreasing_line_color="green",
                 name="K線",
             ), row=1, col=1)
+
+            for ma, color in [("MA5", "#FFD700"), ("MA10", "#A855F7"), ("MA20", "#FF8C00")]:
+                fig.add_trace(go.Scatter(
+                    x=df["日期"],
+                    y=df[ma],
+                    mode="lines",
+                    name=ma,
+                    line=dict(color=color, width=1.5),
+                    hovertemplate=f"{ma}：%{{y:.2f}}<extra></extra>",
+                ), row=1, col=1)
 
             fig.add_trace(go.Bar(
                 x=df["日期"],
