@@ -168,6 +168,14 @@ else:
             styled = df.style.applymap(color_change, subset=["漲跌"])
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
+            csv = df.to_csv(index=False, encoding="utf-8-sig")
+            st.download_button(
+                label="匯出 CSV",
+                data=csv,
+                file_name=f"{current}_{name}_{df['日期'].iloc[0]}_{df['日期'].iloc[-1]}.csv",
+                mime="text/csv",
+            )
+
             # K 線圖 + 成交量組合圖
             colors = ["red" if r["漲跌"] >= 0 else "green" for _, r in df.iterrows()]
 
