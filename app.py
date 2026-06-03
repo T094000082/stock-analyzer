@@ -85,6 +85,7 @@ def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFr
 
     # 篩選到 anchor 日期為止的最後 n_days 筆
     all_df["_dt"] = pd.to_datetime(all_df["日期"])
+    all_df = all_df.sort_values("_dt").drop_duplicates("日期").reset_index(drop=True)
     filtered = all_df[all_df["_dt"] <= pd.Timestamp(anchor)].drop(columns=["_dt"])
     if filtered.empty:
         raise ValueError(f"{anchor} 前無交易資料")
