@@ -3,6 +3,8 @@ import twstock
 import json
 import os
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), "watchlist.json")
 MAX_WATCHLIST = 15
@@ -158,15 +160,48 @@ else:
             styled = df.style.applymap(color_change, subset=["漲跌"])
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
-            # 收盤價折線圖
-            st.subheader("收盤價走勢")
-            chart_df = df.set_index("日期")[["收盤"]]
-            st.line_chart(chart_df)
+            # K 線圖 + 成交量組合圖
+            colors = ["red" if r["漲跌"] >= 0 else "green" for _, r in df.iterrows()]
 
-            # 成交量柱狀圖
-            st.subheader("成交量（張）")
-            vol_df = df.set_index("日期")[["成交量(張)"]]
-            st.bar_chart(vol_df)
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                row_heights=[0.65, 0.35],
+                vertical_spacing=0.03,
+            )
+
+            fig.add_trace(go.Candlestick(
+                x=df["日期"],
+                open=df["開盤"],
+                high=df["最高"],
+                low=df["最低"],
+                close=df["收盤"],
+                increasing_line_color="red",
+                decreasing_line_color="green",
+                name="K線",
+            ), row=1, col=1)
+
+            fig.add_trace(go.Bar(
+                x=df["日期"],
+                y=df["成交量(張)"],
+                marker_color=colors,
+                name="成交量(張)",
+                opacity=0.8,
+            ), row=2, col=1)
+
+            fig.update_layout(
+                height=520,
+                margin=dict(l=0, r=0, t=30, b=0),
+                xaxis_rangeslider_visible=False,
+                legend=dict(orientation="h", y=1.05),
+                plot_bgcolor="#0e1117",
+                paper_bgcolor="#0e1117",
+                font_color="#fafafa",
+            )
+            fig.update_yaxes(gridcolor="#2a2a2a")
+            fig.update_xaxes(gridcolor="#2a2a2a")
+
+            st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.error(f"查詢失敗：{e}\n請確認股票代號是否正確")
