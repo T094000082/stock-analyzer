@@ -46,32 +46,44 @@ def pv_signal(change: float, ratio: float) -> str:
     return ""
 
 def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFrame:
-    stock = twstock.Stock(code)
-    today = datetime.date.today()
-
-    # 決定要抓哪些月份（從 anchor 往前推足夠的範圍）
+    # 計算需要哪些月份
     fetch_start = anchor - datetime.timedelta(days=max(n_days * 2 + 30, 90))
-    months = set()
+    months = []
     cur = fetch_start.replace(day=1)
     while cur <= anchor.replace(day=1):
-        months.add((cur.year, cur.month))
+        months.append((cur.year, cur.month))
         cur = (cur.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
 
-    for year, month in sorted(months):
+    # 每月獨立 fetch（twstock.fetch 每次都會覆蓋，不能累加）
+    stock = twstock.Stock(code, initial_fetch=False)
+    all_dfs = []
+    for year, month in months:
         try:
             stock.fetch(year, month)
+            if not stock.date:
+                continue
+            all_dfs.append(pd.DataFrame({
+                "日期":      [d.strftime("%Y-%m-%d") for d in stock.date],
+                "開盤":      stock.open,
+                "最高":      stock.high,
+                "最低":      stock.low,
+                "收盤":      stock.close,
+                "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity],
+            }))
         except Exception:
             pass
 
-    all_df = pd.DataFrame({
-        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date],
-        "開盤":      stock.open,
-        "最高":      stock.high,
-        "最低":      stock.low,
-        "收盤":      stock.close,
-        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity],
-    })
-    all_df = all_df.dropna(subset=["收盤"]).reset_index(drop=True)
+    if not all_dfs:
+        raise ValueError("無法取得股票資料")
+
+    all_df = (
+        pd.concat(all_dfs, ignore_index=True)
+        .dropna(subset=["收盤"])
+        .assign(_dt=lambda df: pd.to_datetime(df["日期"]))
+        .sort_values("_dt")
+        .drop_duplicates("日期")
+        .reset_index(drop=True)
+    )
     if all_df.empty:
         raise ValueError("此股票無交易資料")
 
@@ -84,9 +96,6 @@ def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFr
     all_df["MA10"] = all_df["收盤"].rolling(10, min_periods=1).mean().round(2)
     all_df["MA20"] = all_df["收盤"].rolling(20, min_periods=1).mean().round(2)
 
-    # 篩選到 anchor 日期為止的最後 n_days 筆
-    all_df["_dt"] = pd.to_datetime(all_df["日期"])
-    all_df = all_df.sort_values("_dt").drop_duplicates("日期").reset_index(drop=True)
     filtered = all_df[all_df["_dt"] <= pd.Timestamp(anchor)].drop(columns=["_dt"])
     if filtered.empty:
         raise ValueError(f"{anchor} 前無交易資料")
