@@ -57,10 +57,11 @@ def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFr
         months.add((cur.year, cur.month))
         cur = (cur.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
 
-    current_month = (today.year, today.month)
     for year, month in sorted(months):
-        if (year, month) != current_month:
+        try:
             stock.fetch(year, month)
+        except Exception:
+            pass
 
     all_df = pd.DataFrame({
         "日期":      [d.strftime("%Y-%m-%d") for d in stock.date],
