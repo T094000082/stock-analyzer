@@ -2,6 +2,7 @@ import streamlit as st
 import twstock
 import json
 import os
+import datetime
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -29,29 +30,46 @@ def volume_label(ratio: float) -> str:
     if ratio < 5.0:  return "大量"
     return "異常爆量"
 
-def fetch_stock_data(code: str, n_days: int) -> pd.DataFrame:
-    from datetime import datetime, timedelta
+def fetch_stock_data(code: str, n_days: int, anchor: datetime.date) -> pd.DataFrame:
     stock = twstock.Stock(code)
-    fetch_count = n_days + 5          # 多抓 5 天，確保 MA5 計算準確
-    if len(stock.date) < fetch_count:
-        prev = (datetime.today().replace(day=1) - timedelta(days=1))
-        stock.fetch(prev.year, prev.month)
-    df = pd.DataFrame({
-        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date[-fetch_count:]],
-        "開盤":      stock.open[-fetch_count:],
-        "最高":      stock.high[-fetch_count:],
-        "最低":      stock.low[-fetch_count:],
-        "收盤":      stock.close[-fetch_count:],
-        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity[-fetch_count:]],
+    today = datetime.date.today()
+
+    # 決定要抓哪些月份（從 anchor 往前推足夠的範圍）
+    fetch_start = anchor - datetime.timedelta(days=max(n_days * 2 + 30, 90))
+    months = set()
+    cur = fetch_start.replace(day=1)
+    while cur <= anchor.replace(day=1):
+        months.add((cur.year, cur.month))
+        cur = (cur.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+
+    current_month = (today.year, today.month)
+    for year, month in sorted(months):
+        if (year, month) != current_month:
+            stock.fetch(year, month)
+
+    all_df = pd.DataFrame({
+        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date],
+        "開盤":      stock.open,
+        "最高":      stock.high,
+        "最低":      stock.low,
+        "收盤":      stock.close,
+        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity],
     })
-    df = df.dropna(subset=["收盤"]).reset_index(drop=True)
-    if df.empty:
-        raise ValueError("此股票近期無交易資料")
-    df["漲跌"]   = df["收盤"].diff().round(2).fillna(0)
-    df["5日均量"] = df["成交量(張)"].rolling(5, min_periods=1).mean().round(0).astype(int)
-    df["量比"]   = (df["成交量(張)"] / df["5日均量"].replace(0, 1)).round(2)
-    df["量能判斷"] = df["量比"].apply(volume_label)
-    return df.tail(n_days).reset_index(drop=True)
+    all_df = all_df.dropna(subset=["收盤"]).reset_index(drop=True)
+    if all_df.empty:
+        raise ValueError("此股票無交易資料")
+
+    all_df["漲跌"]   = all_df["收盤"].diff().round(2).fillna(0)
+    all_df["5日均量"] = all_df["成交量(張)"].rolling(5, min_periods=1).mean().round(0).astype(int)
+    all_df["量比"]   = (all_df["成交量(張)"] / all_df["5日均量"].replace(0, 1)).round(2)
+    all_df["量能判斷"] = all_df["量比"].apply(volume_label)
+
+    # 篩選到 anchor 日期為止的最後 n_days 筆
+    all_df["_dt"] = pd.to_datetime(all_df["日期"])
+    filtered = all_df[all_df["_dt"] <= pd.Timestamp(anchor)].drop(columns=["_dt"])
+    if filtered.empty:
+        raise ValueError(f"{anchor} 前無交易資料")
+    return filtered.tail(n_days).reset_index(drop=True)
 
 def get_stock_name(code: str) -> str:
     try:
@@ -89,6 +107,8 @@ if "current_code" not in st.session_state:
     st.session_state.current_code = ""
 if "n_days" not in st.session_state:
     st.session_state.n_days = 7
+if "anchor" not in st.session_state:
+    st.session_state.anchor = datetime.date.today()
 
 # ── 側邊欄 ────────────────────────────────────────────────
 
@@ -137,6 +157,28 @@ with st.sidebar:
         "顯示交易日數", min_value=1, max_value=30,
         step=1, key="n_days",
     )
+
+    st.caption("查詢截至日期")
+    picked = st.date_input(
+        "截至日期",
+        value=st.session_state.anchor,
+        max_value=datetime.date.today(),
+        label_visibility="collapsed",
+    )
+    st.session_state.anchor = picked
+
+    step = st.session_state.n_days
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("◀ 往前", use_container_width=True):
+            st.session_state.anchor -= datetime.timedelta(days=step)
+            st.rerun()
+    with col2:
+        if st.button("往後 ▶", use_container_width=True):
+            new_d = st.session_state.anchor + datetime.timedelta(days=step)
+            st.session_state.anchor = min(new_d, datetime.date.today())
+            st.rerun()
+
     st.divider()
     st.subheader(f"📋 我的清單（{len(st.session_state.watchlist)}/{MAX_WATCHLIST}）")
 
@@ -163,11 +205,12 @@ if not current:
 else:
     name = get_stock_name(current)
     n_days = st.session_state.n_days
-    st.subheader(f"{current}　{name}　｜　近 {n_days} 個交易日")
+    anchor = st.session_state.anchor
+    st.subheader(f"{current}　{name}　｜　截至 {anchor}　近 {n_days} 個交易日")
 
     with st.spinner("資料載入中..."):
         try:
-            df = fetch_stock_data(current, n_days)
+            df = fetch_stock_data(current, n_days, anchor)
 
             # 漲跌 / 量比顏色標示
             def color_change(val):
