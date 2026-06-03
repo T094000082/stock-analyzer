@@ -1,0 +1,172 @@
+import streamlit as st
+import twstock
+import json
+import os
+import pandas as pd
+
+WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), "watchlist.json")
+MAX_WATCHLIST = 15
+
+# ── 工具函式 ──────────────────────────────────────────────
+
+def load_watchlist():
+    if os.path.exists(WATCHLIST_FILE):
+        with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_watchlist(data):
+    with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+def fetch_stock_data(code: str) -> pd.DataFrame:
+    stock = twstock.Stock(code)
+    dates    = stock.date[-7:]
+    opens    = stock.open[-7:]
+    highs    = stock.high[-7:]
+    lows     = stock.low[-7:]
+    closes   = stock.close[-7:]
+    volumes  = stock.capacity[-7:]
+
+    df = pd.DataFrame({
+        "日期":   [d.strftime("%Y-%m-%d") for d in dates],
+        "開盤":   opens,
+        "最高":   highs,
+        "最低":   lows,
+        "收盤":   closes,
+        "漲跌":   [round(closes[i] - closes[i-1], 2) if i > 0 else 0 for i in range(len(closes))],
+        "成交量(張)": [int(v // 1000) for v in volumes],
+    })
+    return df
+
+def get_stock_name(code: str) -> str:
+    try:
+        info = twstock.codes.get(code)
+        return info.name if info else code
+    except Exception:
+        return code
+
+@st.cache_data
+def build_stock_lookup() -> list[tuple[str, str]]:
+    result = []
+    for code, info in twstock.codes.items():
+        if hasattr(info, "name") and info.name:
+            result.append((code, info.name))
+    return sorted(result, key=lambda x: x[0])
+
+def search_stocks(query: str) -> list[tuple[str, str]]:
+    query = query.strip()
+    if not query:
+        return []
+    lookup = build_stock_lookup()
+    exact = [(c, n) for c, n in lookup if c == query]
+    if exact:
+        return exact
+    return [(c, n) for c, n in lookup if query in c or query in n][:30]
+
+# ── 頁面設定 ──────────────────────────────────────────────
+
+st.set_page_config(page_title="台股價量評估", page_icon="📈", layout="wide")
+st.title("📈 台股價量評估")
+
+if "watchlist" not in st.session_state:
+    st.session_state.watchlist = load_watchlist()
+if "current_code" not in st.session_state:
+    st.session_state.current_code = ""
+
+# ── 側邊欄 ────────────────────────────────────────────────
+
+with st.sidebar:
+    st.header("🔍 查詢股票")
+    search_query = st.text_input(
+        "輸入代號或公司名稱",
+        placeholder="例：2330 或 台積電",
+    ).strip()
+
+    selected_code = None
+    selected_name = ""
+
+    if search_query:
+        matches = search_stocks(search_query)
+        if not matches:
+            st.caption("⚠️ 找不到相符股票")
+        elif len(matches) == 1:
+            selected_code, selected_name = matches[0]
+            st.caption(f"✓ {selected_code}　{selected_name}")
+        else:
+            options = [f"{c}　{n}" for c, n in matches]
+            chosen = st.selectbox(
+                f"找到 {len(matches)} 筆，請選擇",
+                options,
+                key="stock_select",
+            )
+            idx = options.index(chosen)
+            selected_code, selected_name = matches[idx]
+
+    if st.button("查詢", use_container_width=True):
+        if selected_code:
+            st.session_state.current_code = selected_code
+            wl = st.session_state.watchlist
+            if selected_code not in wl:
+                if len(wl) >= MAX_WATCHLIST:
+                    st.warning(f"清單已滿（上限 {MAX_WATCHLIST} 筆），請先刪除再新增")
+                else:
+                    wl.append(selected_code)
+                    save_watchlist(wl)
+        elif search_query:
+            st.warning("請從搜尋結果中選擇股票")
+
+    st.divider()
+    st.subheader(f"📋 我的清單（{len(st.session_state.watchlist)}/{MAX_WATCHLIST}）")
+
+    for code in list(st.session_state.watchlist):
+        name = get_stock_name(code)
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            if st.button(f"{code} {name}", key=f"sel_{code}", use_container_width=True):
+                st.session_state.current_code = code
+        with col2:
+            if st.button("✕", key=f"del_{code}"):
+                st.session_state.watchlist.remove(code)
+                save_watchlist(st.session_state.watchlist)
+                if st.session_state.current_code == code:
+                    st.session_state.current_code = ""
+                st.rerun()
+
+# ── 主畫面 ────────────────────────────────────────────────
+
+current = st.session_state.current_code
+
+if not current:
+    st.info("請在左側輸入股票代號或點選清單中的股票")
+else:
+    name = get_stock_name(current)
+    st.subheader(f"{current}　{name}　｜　近 7 個交易日")
+
+    with st.spinner("資料載入中..."):
+        try:
+            df = fetch_stock_data(current)
+
+            # 漲跌顏色標示
+            def color_change(val):
+                if val > 0:
+                    return "color: red"
+                elif val < 0:
+                    return "color: green"
+                return ""
+
+            styled = df.style.applymap(color_change, subset=["漲跌"])
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+
+            # 收盤價折線圖
+            st.subheader("收盤價走勢")
+            chart_df = df.set_index("日期")[["收盤"]]
+            st.line_chart(chart_df)
+
+            # 成交量柱狀圖
+            st.subheader("成交量（張）")
+            vol_df = df.set_index("日期")[["成交量(張)"]]
+            st.bar_chart(vol_df)
+
+        except Exception as e:
+            st.error(f"查詢失敗：{e}\n請確認股票代號是否正確")
