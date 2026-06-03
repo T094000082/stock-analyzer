@@ -284,28 +284,7 @@ else:
                 .applymap(color_label,   subset=["量能判斷"])
                 .applymap(color_signal,  subset=["訊號"])
             )
-            st.dataframe(
-                styled,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "序號":      st.column_config.NumberColumn(width="small"),
-                    "日期":      st.column_config.TextColumn(width="small"),
-                    "開盤":      st.column_config.NumberColumn(width="small"),
-                    "最高":      st.column_config.NumberColumn(width="small"),
-                    "最低":      st.column_config.NumberColumn(width="small"),
-                    "收盤":      st.column_config.NumberColumn(width="small"),
-                    "漲跌":      st.column_config.NumberColumn(width="small"),
-                    "成交量(張)": st.column_config.TextColumn(width="medium"),
-                    "5日均量":   st.column_config.TextColumn(width="medium"),
-                    "量比":      st.column_config.NumberColumn(width="small"),
-                    "量能判斷":  st.column_config.TextColumn(width="small"),
-                    "訊號":      st.column_config.TextColumn(width="small"),
-                    "MA5":       st.column_config.NumberColumn(width="small"),
-                    "MA10":      st.column_config.NumberColumn(width="small"),
-                    "MA20":      st.column_config.NumberColumn(width="small"),
-                },
-            )
+            st.dataframe(styled, use_container_width=True, hide_index=True)
 
             csv = df.to_csv(index=False, encoding="utf-8-sig")
             st.download_button(
