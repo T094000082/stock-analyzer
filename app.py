@@ -21,15 +21,19 @@ def save_watchlist(data):
     with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
-def fetch_stock_data(code: str) -> pd.DataFrame:
+def fetch_stock_data(code: str, n_days: int) -> pd.DataFrame:
+    from datetime import datetime, timedelta
     stock = twstock.Stock(code)
+    if len(stock.date) < n_days:
+        prev = (datetime.today().replace(day=1) - timedelta(days=1))
+        stock.fetch(prev.year, prev.month)
     df = pd.DataFrame({
-        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date[-7:]],
-        "開盤":      stock.open[-7:],
-        "最高":      stock.high[-7:],
-        "最低":      stock.low[-7:],
-        "收盤":      stock.close[-7:],
-        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity[-7:]],
+        "日期":      [d.strftime("%Y-%m-%d") for d in stock.date[-n_days:]],
+        "開盤":      stock.open[-n_days:],
+        "最高":      stock.high[-n_days:],
+        "最低":      stock.low[-n_days:],
+        "收盤":      stock.close[-n_days:],
+        "成交量(張)": [int(v // 1000) if v else 0 for v in stock.capacity[-n_days:]],
     })
     df = df.dropna(subset=["收盤"]).reset_index(drop=True)
     if df.empty:
@@ -71,6 +75,8 @@ if "watchlist" not in st.session_state:
     st.session_state.watchlist = load_watchlist()
 if "current_code" not in st.session_state:
     st.session_state.current_code = ""
+if "n_days" not in st.session_state:
+    st.session_state.n_days = 7
 
 # ── 側邊欄 ────────────────────────────────────────────────
 
@@ -115,6 +121,11 @@ with st.sidebar:
             st.warning("請從搜尋結果中選擇股票")
 
     st.divider()
+    st.session_state.n_days = st.slider(
+        "顯示交易日數", min_value=1, max_value=30,
+        value=st.session_state.n_days, step=1,
+    )
+    st.divider()
     st.subheader(f"📋 我的清單（{len(st.session_state.watchlist)}/{MAX_WATCHLIST}）")
 
     for code in list(st.session_state.watchlist):
@@ -139,11 +150,12 @@ if not current:
     st.info("請在左側輸入股票代號或點選清單中的股票")
 else:
     name = get_stock_name(current)
-    st.subheader(f"{current}　{name}　｜　近 7 個交易日")
+    n_days = st.session_state.n_days
+    st.subheader(f"{current}　{name}　｜　近 {n_days} 個交易日")
 
     with st.spinner("資料載入中..."):
         try:
-            df = fetch_stock_data(current)
+            df = fetch_stock_data(current, n_days)
 
             # 漲跌顏色標示
             def color_change(val):
