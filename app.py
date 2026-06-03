@@ -242,6 +242,9 @@ else:
         try:
             df = fetch_stock_data(current, n_days, anchor)
 
+            # 加序號欄
+            df.insert(0, "序號", range(1, len(df) + 1))
+
             # 漲跌 / 量比顏色標示
             def color_change(val):
                 if isinstance(val, (int, float)):
