@@ -274,6 +274,12 @@ else:
             def color_signal(val):
                 return SIGNAL_COLOR.get(val, "")
 
+            # pandas 3.x 使用 Styler.map；舊版使用 Styler.applymap
+            def styler_cell_map(styler, func, subset):
+                if hasattr(styler, "map"):
+                    return styler.map(func, subset=subset)
+                return styler.applymap(func, subset=subset)
+
             styled = (
                 df.style
                 .format({
@@ -283,10 +289,10 @@ else:
                     "MA5":  "{:.2f}", "MA10": "{:.2f}", "MA20": "{:.2f}",
                     "成交量(張)": "{:,}", "5日均量": "{:,}",
                 })
-                .applymap(color_change,  subset=["漲跌"])
-                .applymap(color_label,   subset=["量能判斷"])
-                .applymap(color_signal,  subset=["訊號"])
             )
+            styled = styler_cell_map(styled, color_change, subset=["漲跌"])
+            styled = styler_cell_map(styled, color_label, subset=["量能判斷"])
+            styled = styler_cell_map(styled, color_signal, subset=["訊號"])
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
             csv = df.to_csv(index=False, encoding="utf-8-sig")
