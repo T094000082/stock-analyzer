@@ -128,8 +128,111 @@ def search_stocks(query: str) -> list[tuple[str, str]]:
 
 # ── 頁面設定 ──────────────────────────────────────────────
 
-st.set_page_config(page_title="台股價量評估", page_icon="📈", layout="wide")
-st.title("📈 台股價量評估")
+st.set_page_config(page_title="勸世股經-台股價量評估儀表板", page_icon="📈", layout="wide")
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=IBM+Plex+Sans:wght@500;700&display=swap');
+
+    :root {
+        --bg: #f4f7fb;
+        --card-bg: #ffffff;
+        --card-border: #dfe7f2;
+        --title: #14233c;
+        --text: #31435f;
+        --muted: #6780a0;
+        --up: #d33f49;
+        --down: #1a936f;
+        --accent: #2155cd;
+    }
+
+    .stApp {
+        background:
+            radial-gradient(circle at 12% 10%, #e8f0ff 0%, transparent 35%),
+            radial-gradient(circle at 90% 12%, #edf7f1 0%, transparent 30%),
+            var(--bg);
+        color: var(--text);
+        font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    .top-banner {
+        background: linear-gradient(120deg, #f7fbff 0%, #edf4ff 55%, #f5fbff 100%);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        padding: 18px 20px;
+        margin-bottom: 10px;
+        box-shadow: 0 14px 28px rgba(18, 38, 73, 0.08);
+    }
+
+    .top-banner h1 {
+        margin: 0;
+        color: var(--title);
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 1.78rem;
+        letter-spacing: 0.01em;
+    }
+
+    .top-banner p {
+        margin: 8px 0 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+    }
+
+    .metric-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: 12px 14px;
+        box-shadow: 0 8px 20px rgba(15, 40, 75, 0.07);
+        min-height: 92px;
+    }
+
+    .metric-label {
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+
+    .metric-value {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--title);
+        line-height: 1.2;
+    }
+
+    .metric-note {
+        margin-top: 4px;
+        font-size: 0.82rem;
+        color: var(--muted);
+    }
+
+    .up { color: var(--up); }
+    .down { color: var(--down); }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f3f8ff 0%, #f9fbff 100%);
+        border-right: 1px solid var(--card-border);
+    }
+
+    @media (max-width: 900px) {
+        .top-banner h1 { font-size: 1.4rem; }
+        .metric-value { font-size: 1.15rem; }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="top-banner">
+    <h1>勸世股經-台股價量評估儀表板</h1>
+      <p>以價格、量能與均線訊號快速掌握個股短期節奏</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 if "watchlist" not in st.session_state:
     st.session_state.watchlist = load_watchlist()
@@ -242,6 +345,67 @@ else:
         try:
             df = fetch_stock_data(current, n_days, anchor)
 
+            latest = df.iloc[-1]
+            latest_change = float(latest["漲跌"])
+            latest_close = float(latest["收盤"])
+            latest_ratio = float(latest["量比"])
+            latest_volume = int(latest["成交量(張)"])
+            latest_label = str(latest["量能判斷"])
+            latest_signal = str(latest["訊號"]) if str(latest["訊號"]) else "無明確訊號"
+
+            def class_by_value(v: float) -> str:
+                if v > 0:
+                    return "up"
+                if v < 0:
+                    return "down"
+                return ""
+
+            k1, k2, k3, k4 = st.columns(4)
+            with k1:
+                st.markdown(
+                    f"""
+                    <div class="metric-card">
+                      <div class="metric-label">最新收盤</div>
+                      <div class="metric-value">{latest_close:.2f}</div>
+                      <div class="metric-note">交易日：{latest['日期']}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with k2:
+                st.markdown(
+                    f"""
+                    <div class="metric-card">
+                      <div class="metric-label">當日漲跌</div>
+                      <div class="metric-value {class_by_value(latest_change)}">{latest_change:+.2f}</div>
+                      <div class="metric-note">相較前一交易日</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with k3:
+                st.markdown(
+                    f"""
+                    <div class="metric-card">
+                      <div class="metric-label">量比 / 量能</div>
+                      <div class="metric-value">{latest_ratio:.2f}</div>
+                      <div class="metric-note">{latest_label}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with k4:
+                st.markdown(
+                    f"""
+                    <div class="metric-card">
+                      <div class="metric-label">成交量(張)</div>
+                      <div class="metric-value">{latest_volume:,}</div>
+                      <div class="metric-note">訊號：{latest_signal}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
             # 加序號欄，並重新排列欄位順序
             df.insert(0, "序號", range(1, len(df) + 1))
             df = df[["序號", "日期", "訊號", "成交量(張)", "量能判斷", "量比",
@@ -293,15 +457,6 @@ else:
             styled = styler_cell_map(styled, color_change, subset=["漲跌"])
             styled = styler_cell_map(styled, color_label, subset=["量能判斷"])
             styled = styler_cell_map(styled, color_signal, subset=["訊號"])
-            st.dataframe(styled, use_container_width=True, hide_index=True)
-
-            csv = df.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button(
-                label="匯出 CSV",
-                data=csv,
-                file_name=f"{current}_{name}_{df['日期'].iloc[0]}_{df['日期'].iloc[-1]}.csv",
-                mime="text/csv",
-            )
 
             # K 線圖 + 成交量組合圖
             colors = ["red" if r["漲跌"] >= 0 else "green" for _, r in df.iterrows()]
@@ -371,14 +526,23 @@ else:
                 margin=dict(l=0, r=0, t=30, b=0),
                 xaxis_rangeslider_visible=False,
                 legend=dict(orientation="h", y=1.05),
-                plot_bgcolor="#0e1117",
-                paper_bgcolor="#0e1117",
-                font_color="#fafafa",
+                plot_bgcolor="#ffffff",
+                paper_bgcolor="#ffffff",
+                font_color="#20324d",
             )
-            fig.update_yaxes(gridcolor="#2a2a2a")
-            fig.update_xaxes(gridcolor="#2a2a2a")
-
+            fig.update_yaxes(gridcolor="#e5ecf6")
+            fig.update_xaxes(gridcolor="#e5ecf6")
             st.plotly_chart(fig, use_container_width=True)
+
+            st.divider()
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+            csv = df.to_csv(index=False, encoding="utf-8-sig")
+            st.download_button(
+                label="匯出 CSV",
+                data=csv,
+                file_name=f"{current}_{name}_{df['日期'].iloc[0]}_{df['日期'].iloc[-1]}.csv",
+                mime="text/csv",
+            )
 
         except Exception as e:
             st.error(f"查詢失敗：{e}\n請確認股票代號是否正確")
