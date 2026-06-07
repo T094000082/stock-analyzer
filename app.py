@@ -2,10 +2,12 @@ import streamlit as st
 import twstock
 import json
 import os
+import math
 import datetime
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from PIL import Image, ImageDraw
 
 WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), "watchlist.json")
 MAX_WATCHLIST = 15
@@ -254,7 +256,24 @@ THEMES = {
 
 # ── 頁面設定 ──────────────────────────────────────────────
 
-st.set_page_config(page_title="勸世股經-台股價量評估儀表板", page_icon="📈", layout="wide")
+def _make_dharma_wheel(size: int = 64, color=(255, 215, 0)) -> Image.Image:
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    cx = cy = size / 2
+    r_out = size / 2 - 2
+    r_hub = size / 7
+    lw = max(2, size // 18)
+    draw.ellipse([cx - r_out, cy - r_out, cx + r_out, cy + r_out], outline=color, width=lw)
+    for i in range(8):
+        a = math.radians(i * 45)
+        draw.line([
+            cx + r_hub * math.cos(a), cy + r_hub * math.sin(a),
+            cx + r_out * math.cos(a), cy + r_out * math.sin(a),
+        ], fill=color, width=lw)
+    draw.ellipse([cx - r_hub, cy - r_hub, cx + r_hub, cy + r_hub], fill=color)
+    return img
+
+st.set_page_config(page_title="勸世股經-台股價量評估儀表板", page_icon=_make_dharma_wheel(), layout="wide")
 st.markdown(
     """
     <style>
@@ -414,13 +433,6 @@ _theme_css = THEMES.get(_theme_key, THEMES["廟宇金紅"])["css"]
 if _theme_css:
     st.markdown(f"<style>{_theme_css}</style>", unsafe_allow_html=True)
 
-st.markdown(
-    """<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,"""
-    """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>"""
-    """<path fill='%23FFD700' d='M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41"""
-    """-7.09 7.97-4-4L2 16.99z'/></svg>">""",
-    unsafe_allow_html=True,
-)
 
 _today_wisdom = WISDOM[datetime.date.today().toordinal() % len(WISDOM)]
 st.markdown(
