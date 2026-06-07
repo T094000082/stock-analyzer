@@ -2,8 +2,10 @@ import streamlit as st
 import twstock
 import json
 import os
+import math
 import datetime
 import pandas as pd
+from PIL import Image, ImageDraw
 
 WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), "watchlist.json")
 MAX_WATCHLIST = 15
@@ -159,3 +161,111 @@ def search_stocks(query: str) -> list[tuple[str, str]]:
 
 def today_wisdom() -> str:
     return WISDOM[datetime.date.today().toordinal() % len(WISDOM)]
+
+def make_dharma_wheel(size: int = 64, color=(255, 215, 0)) -> Image.Image:
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    cx = cy = size / 2
+    r_out = size / 2 - 2
+    r_hub = size / 7
+    lw = max(2, size // 18)
+    draw.ellipse([cx - r_out, cy - r_out, cx + r_out, cy + r_out], outline=color, width=lw)
+    for i in range(8):
+        a = math.radians(i * 45)
+        draw.line([
+            cx + r_hub * math.cos(a), cy + r_hub * math.sin(a),
+            cx + r_out * math.cos(a), cy + r_out * math.sin(a),
+        ], fill=color, width=lw)
+    draw.ellipse([cx - r_hub, cy - r_hub, cx + r_hub, cy + r_hub], fill=color)
+    return img
+
+THEMES = {
+    "廟宇金紅": {
+        "label": "🏯 廟宇金紅",
+        "css": """
+:root { --bg:#1c0d00; --card-bg:#2d1800; --card-border:#6b3800;
+        --title:#FFD700; --text:#f5e6c8; --muted:#c4a070;
+        --up:#ff6666; --down:#44cc88; --accent:#ffaa00; }
+.stApp { background: radial-gradient(circle at 12% 10%,#3d1500 0%,transparent 40%),
+         radial-gradient(circle at 90% 12%,#2a1000 0%,transparent 35%), #1c0d00; }
+.top-banner { background:linear-gradient(120deg,#2d1800 0%,#3d2200 55%,#2d1800 100%);
+              border-color:#6b3800; box-shadow:0 14px 28px rgba(180,80,0,.25); }
+.marquee-track { color:#FFD700; }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#1c0d00 0%,#2d1800 100%);
+                             border-right-color:#6b3800; }
+[data-testid="stHeader"] { background:#1c0d00 !important; border-bottom:1px solid #6b3800; }
+[data-testid="stHeader"] * { color:#c4a070 !important; }
+""",
+    },
+    "佛系水墨": {
+        "label": "🖌️ 佛系水墨",
+        "css": """
+:root { --bg:#f5f2ec; --card-bg:#faf8f3; --card-border:#d4c9b0;
+        --title:#1a1a14; --text:#2d2d20; --muted:#7a7060;
+        --up:#b02020; --down:#1a6e38; --accent:#4a6e70; }
+.stApp { background: radial-gradient(circle at 12% 10%,#e8e2d4 0%,transparent 35%),
+         radial-gradient(circle at 90% 12%,#eae5d8 0%,transparent 30%), #f5f2ec; }
+.top-banner { background:linear-gradient(120deg,#faf8f3 0%,#f0ece0 55%,#faf8f3 100%);
+              border-color:#d4c9b0; }
+.marquee-track { color:#1a1a14; font-style:normal; }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#f0ece0 0%,#f8f6f0 100%);
+                             border-right-color:#d4c9b0; }
+[data-testid="stHeader"] { background:#faf8f3 !important; border-bottom:1px solid #d4c9b0; }
+[data-testid="stHeader"] * { color:#7a7060 !important; }
+""",
+    },
+    "清新商務": {
+        "label": "💼 清新商務",
+        "css": "",
+    },
+    "科技暗黑": {
+        "label": "🖥️ 科技暗黑",
+        "css": """
+:root { --bg:#080e1a; --card-bg:#0d1526; --card-border:#1e3050;
+        --title:#d0e8ff; --text:#90b8e0; --muted:#506080;
+        --up:#ff4488; --down:#00e888; --accent:#00ccff; }
+.stApp { background: radial-gradient(circle at 12% 10%,#0d1f3a 0%,transparent 35%),
+         radial-gradient(circle at 90% 12%,#081a10 0%,transparent 30%), #080e1a; }
+.top-banner { background:linear-gradient(120deg,#0d1526 0%,#0a1e38 55%,#0d1526 100%);
+              border-color:#1e3050; box-shadow:0 14px 28px rgba(0,100,200,.15); }
+.marquee-track { color:#00ccff; }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#080e1a 0%,#0d1526 100%);
+                             border-right-color:#1e3050; }
+[data-testid="stHeader"] { background:#080e1a !important; border-bottom:1px solid #1e3050; }
+[data-testid="stHeader"] * { color:#506080 !important; }
+""",
+    },
+    "傳統紙本": {
+        "label": "📰 傳統紙本",
+        "css": """
+:root { --bg:#f4eed8; --card-bg:#faf6e6; --card-border:#c8b880;
+        --title:#1a1200; --text:#2d2400; --muted:#8d7352;
+        --up:#cc0000; --down:#006400; --accent:#8b4513; }
+.stApp { background: radial-gradient(circle at 12% 10%,#ede6c8 0%,transparent 35%),
+         radial-gradient(circle at 90% 12%,#f0eacc 0%,transparent 30%), #f4eed8; }
+.top-banner { background:linear-gradient(120deg,#faf6e6 0%,#f5eed4 55%,#faf6e6 100%);
+              border-color:#c8b880; }
+.marquee-track { color:#1a1200; }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#ede6c8 0%,#f8f4e4 100%);
+                             border-right-color:#c8b880; }
+[data-testid="stHeader"] { background:#f4eed8 !important; border-bottom:1px solid #c8b880; }
+[data-testid="stHeader"] * { color:#8d7352 !important; }
+""",
+    },
+    "極簡白": {
+        "label": "⬜ 極簡白",
+        "css": """
+:root { --bg:#ffffff; --card-bg:#f8f8f8; --card-border:#e0e0e0;
+        --title:#111111; --text:#444444; --muted:#888888;
+        --up:#e53935; --down:#43a047; --accent:#424242; }
+.stApp { background:#ffffff; }
+.top-banner { background:#f8f8f8; border-color:#e0e0e0;
+              box-shadow:0 2px 8px rgba(0,0,0,.06); }
+.marquee-track { color:#111111; }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#f5f5f5 0%,#fafafa 100%);
+                             border-right-color:#e0e0e0; }
+[data-testid="stHeader"] { background:#ffffff !important; border-bottom:1px solid #e0e0e0; }
+[data-testid="stHeader"] * { color:#888888 !important; }
+""",
+    },
+}

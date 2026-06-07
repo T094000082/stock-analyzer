@@ -2,3 +2,6 @@ streamlit
 twstock
 pandas
 plotly
+requests
+Pillow
+feedparser
