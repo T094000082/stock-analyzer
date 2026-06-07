@@ -259,6 +259,7 @@ st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=IBM+Plex+Sans:wght@500;700&display=swap');
+    @import url('https://fonts.googleapis.com/icon?family=Material+Icons+Round');
 
     :root {
         --bg: #f4f7fb;
@@ -368,6 +369,35 @@ st.markdown(
         letter-spacing: 0.08em;
         margin-bottom: 6px;
         font-family: 'IBM Plex Sans', sans-serif;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .mi {
+        font-family: 'Material Icons Round';
+        font-style: normal;
+        font-weight: normal;
+        line-height: 1;
+        display: inline-block;
+        vertical-align: -0.15em;
+        user-select: none;
+    }
+
+    .sidebar-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--title);
+        padding: 6px 0 4px 0;
+        margin: 0 0 6px 0;
+    }
+
+    .sidebar-title .mi {
+        font-size: 1.2rem;
+        color: var(--accent);
     }
 
     @media (max-width: 900px) {
@@ -384,11 +414,22 @@ _theme_css = THEMES.get(_theme_key, THEMES["廟宇金紅"])["css"]
 if _theme_css:
     st.markdown(f"<style>{_theme_css}</style>", unsafe_allow_html=True)
 
+st.markdown(
+    """<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,"""
+    """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>"""
+    """<path fill='%23FFD700' d='M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41"""
+    """-7.09 7.97-4-4L2 16.99z'/></svg>">""",
+    unsafe_allow_html=True,
+)
+
 _today_wisdom = WISDOM[datetime.date.today().toordinal() % len(WISDOM)]
 st.markdown(
     f"""
     <div class="top-banner">
-      <div class="brand-label">📈 勸世股經｜台股價量評估儀表板</div>
+      <div class="brand-label">
+        <span class="mi" style="font-size:1rem">trending_up</span>
+        勸世股經｜台股價量評估儀表板
+      </div>
       <div class="marquee-wrap">
         <div class="marquee-track">
           {_today_wisdom} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -414,7 +455,7 @@ if "theme" not in st.session_state:
 # ── 側邊欄 ────────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("🔍 查詢股票")
+    st.markdown('<p class="sidebar-title"><span class="mi">search</span> 查詢股票</p>', unsafe_allow_html=True)
     search_query = st.text_input(
         "輸入代號或公司名稱",
         placeholder="例：2330 或 台積電",
@@ -471,17 +512,20 @@ with st.sidebar:
     step = st.session_state.n_days
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("◀ 往前", use_container_width=True):
+        if st.button("← 往前", use_container_width=True):
             st.session_state.anchor -= datetime.timedelta(days=step)
             st.rerun()
     with col2:
-        if st.button("往後 ▶", use_container_width=True):
+        if st.button("往後 →", use_container_width=True):
             new_d = st.session_state.anchor + datetime.timedelta(days=step)
             st.session_state.anchor = min(new_d, datetime.date.today())
             st.rerun()
 
     st.divider()
-    st.subheader(f"📋 我的清單（{len(st.session_state.watchlist)}/{MAX_WATCHLIST}）")
+    st.markdown(
+        f'<p class="sidebar-title"><span class="mi">bookmarks</span> 我的清單（{len(st.session_state.watchlist)}/{MAX_WATCHLIST}）</p>',
+        unsafe_allow_html=True,
+    )
 
     for code in list(st.session_state.watchlist):
         name = get_stock_name(code)
@@ -501,7 +545,8 @@ with st.sidebar:
     theme_labels = [v["label"] for v in THEMES.values()]
     theme_keys   = list(THEMES.keys())
     current_idx  = theme_keys.index(st.session_state.theme) if st.session_state.theme in theme_keys else 0
-    chosen_label = st.selectbox("🎨 畫面風格", theme_labels, index=current_idx)
+    st.markdown('<p class="sidebar-title"><span class="mi">palette</span> 畫面風格</p>', unsafe_allow_html=True)
+    chosen_label = st.selectbox("", theme_labels, index=current_idx, label_visibility="collapsed")
     st.session_state.theme = theme_keys[theme_labels.index(chosen_label)]
 
 # ── 主畫面 ────────────────────────────────────────────────
