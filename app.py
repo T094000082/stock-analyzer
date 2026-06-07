@@ -10,6 +10,39 @@ from plotly.subplots import make_subplots
 WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), "watchlist.json")
 MAX_WATCHLIST = 15
 
+WISDOM = [
+    "借錢買股票，贏了還是要還，輸了要還更多——槓桿是把雙刃刀，別讓財務槓桿變成人生枷鎖。",
+    "股票是對抗通膨的工具，穩定的收入仍得靠日復一日的本業——別把手段當目的。",
+    "賣出前，股票只是螢幕上的數字；看著漲跌起伏是精神上的虛幻，變現花出去才是真實的享受。",
+    "追高殺低是本能，逆向操作是修練——大多數人一輩子只練到本能。",
+    "停損是技術，停利是智慧；能同時做到的人，才稱得上投資人，而非賭徒。",
+    "本金虧掉 50%，要漲 100% 才能回本——保護本金，永遠比追求獲利更重要。",
+    "看財經節目愈多，愈以為自己懂市場——真正的市場，從不接受任何人的預測。",
+    "漲的時候你覺得自己是天才，跌的時候市場才告訴你是普通人。",
+    "每次「這次不一樣」的感覺，幾乎都以一樣的方式虧損收場。",
+    "分散投資不是因為你聰明，而是承認自己無法預知哪一個會先出事。",
+    "市場永遠不缺機會，缺的是等待的耐心和進場的紀律。",
+    "新聞上的好消息通常是出貨訊號，壞消息有時才是機會的開始。",
+    "把「短套」說成「長期投資」，是不願承認錯誤的自我安慰，不是策略。",
+    "每天盯盤的時間拿去提升本業技能，可能比股票賺更多。",
+    "市場先生情緒不穩定，但他給的價格是你唯一能利用的機會——學會等他失控。",
+    "財報公佈前買進、消息出來後賣出——這不叫精準預測，叫做被主力耍了。",
+    "急著解套的心情，通常是再次虧損的起點。",
+    "買股票前先問自己：這家公司消失了，世界有什麼不同？沒有答案，就不要碰。",
+    "「低點再買」和「攤平」的差別，在於你有沒有真正研究過這間公司。",
+    "主力看的是你的停損點在哪；你的停損點，就是他們的獲利點。",
+    "退休金不能拿去賭——能輸得起的錢才能進股市，先搞清楚自己在玩什麼。",
+    "每一筆帳面獲利都是假的，每一筆實際入帳才是真的——養成賣出的習慣。",
+    "市場可以讓你長期錯，但不會讓你永遠錯——前提是你還有本金撐到那一天。",
+    "股票影響了你的睡眠、心情和家人，表示你押注太重了。",
+    "聽到「飆股內線消息」的時候，你已經是最後一個知道的人了。",
+    "財富自由的前提，是先從「帳面焦慮」中自由——平靜才是真正的資產。",
+    "下跌時恐慌、上漲時貪婪——能逆著群眾走的人，才能賺到群眾的錢。",
+    "複利的威力需要時間，但大多數人等不到那一天就砍掉了。",
+    "最好的投資，是讓你睡得著覺的投資。",
+    "每次大跌都有人說「這次是末日」，每次大漲都有人說「這次不會跌」——兩種人最後都輸了。",
+]
+
 # ── 工具函式 ──────────────────────────────────────────────
 
 def load_watchlist():
@@ -215,6 +248,35 @@ st.markdown(
         border-right: 1px solid var(--card-border);
     }
 
+    .marquee-wrap {
+        overflow: hidden;
+        white-space: nowrap;
+        margin-bottom: 10px;
+    }
+
+    .marquee-track {
+        display: inline-block;
+        animation: scroll-marquee 45s linear infinite;
+        color: var(--title);
+        font-family: 'Noto Sans TC', sans-serif;
+        font-size: 1.72rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+    }
+
+    @keyframes scroll-marquee {
+        0%   { transform: translateX(100vw); }
+        100% { transform: translateX(-100%); }
+    }
+
+    .brand-label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+        font-family: 'IBM Plex Sans', sans-serif;
+    }
+
     @media (max-width: 900px) {
         .top-banner h1 { font-size: 1.4rem; }
         .metric-value { font-size: 1.15rem; }
@@ -224,11 +286,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+_today_wisdom = WISDOM[datetime.date.today().toordinal() % len(WISDOM)]
 st.markdown(
-    """
+    f"""
     <div class="top-banner">
-    <h1>勸世股經-台股價量評估儀表板</h1>
-      <p>以價格、量能與均線訊號快速掌握個股短期節奏</p>
+      <div class="brand-label">📈 勸世股經｜台股價量評估儀表板</div>
+      <div class="marquee-wrap">
+        <div class="marquee-track">
+          {_today_wisdom} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          {_today_wisdom}
+        </div>
+      </div>
     </div>
     """,
     unsafe_allow_html=True,
