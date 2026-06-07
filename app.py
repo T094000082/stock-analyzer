@@ -143,12 +143,14 @@ def get_stock_name(code: str) -> str:
     except Exception:
         return code
 
+_SEARCH_TYPES = {"股票", "ETF", "ETN", "創新板", "特別股", "受益證券-不動產投資信託"}
+
 @st.cache_data
-def build_stock_lookup() -> list[tuple[str, str]]:
+def build_stock_lookup() -> list[tuple[str, str, str]]:
     result = []
     for code, info in twstock.codes.items():
         if hasattr(info, "name") and info.name:
-            result.append((code, info.name))
+            result.append((code, info.name, getattr(info, "type", "")))
     return sorted(result, key=lambda x: x[0])
 
 def search_stocks(query: str) -> list[tuple[str, str]]:
@@ -156,10 +158,13 @@ def search_stocks(query: str) -> list[tuple[str, str]]:
     if not query:
         return []
     lookup = build_stock_lookup()
-    exact = [(c, n) for c, n in lookup if c == query]
+    # 精確代號比對：不限類型
+    exact = [(c, n) for c, n, t in lookup if c == query]
     if exact:
         return exact
-    return [(c, n) for c, n in lookup if query in c or query in n][:30]
+    # 模糊比對：只顯示股票、ETF 等，排除權證
+    return [(c, n) for c, n, t in lookup
+            if (query in c or query in n) and t in _SEARCH_TYPES][:30]
 
 # ── 主題定義 ──────────────────────────────────────────────
 
