@@ -512,11 +512,11 @@ with st.sidebar:
     step = st.session_state.n_days
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← 往前", use_container_width=True):
+        if st.button("◀ 往前", use_container_width=True):
             st.session_state.anchor -= datetime.timedelta(days=step)
             st.rerun()
     with col2:
-        if st.button("往後 →", use_container_width=True):
+        if st.button("往後 ▶", use_container_width=True):
             new_d = st.session_state.anchor + datetime.timedelta(days=step)
             st.session_state.anchor = min(new_d, datetime.date.today())
             st.rerun()
